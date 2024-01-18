@@ -1,0 +1,26 @@
+[project]
+name = "gpt"
+description = "OpenAI API helper for Curious Minds"
+version = "0.0.1"
+authors = [{ name = "Seongmin Ok", email = "seongmin.ok@samsung.com" }]
+dependencies = [
+    "loguru",
+    "openai",
+    "tenacity",
+]
+
+[project.optional-dependencies]
+dev = ["isort", "black", "pytest", "pre-commit"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+pythonpath = ['tests']

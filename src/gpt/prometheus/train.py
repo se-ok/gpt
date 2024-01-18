@@ -61,28 +61,18 @@ def main(infile: Path, outfile: Path, cachefile: Path, max_concurrency: int):
 
     # Translate with progress bar
     translated = []
-    generator = translator.generate(to_translate, cache_file=cachefile)
-    pbar = tqdm(total=len(samples) * len(KEYS_TO_TRANSLATE), desc="Translating")
-    input_tokens = 0
-    output_tokens = 0
+
+    completions = translator.generate(to_translate, cache_file=cachefile, ignore_error=True)
+    iterator = iter(tqdm(completions, desc='Building translated data'))
 
     for sample in samples:
         copied = copy.deepcopy(sample)
 
         for key in KEYS_TO_TRANSLATE:
-            output = next(generator)
-
+            output = next(iterator)
             copied[key] = output.completion
-            input_tokens += output.prompt_tokens
-            output_tokens += output.completion_tokens
-            cost = input_tokens * 0.001 / 1000 + output_tokens * 0.002 / 1000
-
-            pbar.set_postfix_str(f"Input {input_tokens}, Output {output_tokens}, ${cost:.4f}")
-            pbar.update()
 
         translated.append(copied)
-
-    pbar.close()
 
     # Save as json
     with open(outfile, "w") as f:

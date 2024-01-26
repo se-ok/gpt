@@ -1,3 +1,6 @@
+"""Translate the training data for Prometheus arXiv 2310.08491
+"""
+
 import argparse
 import copy
 import json
@@ -36,7 +39,9 @@ def parse_args():
 
     parser.add_argument("--infile", required=True, help="Path to new_feedback_collection.json")
     parser.add_argument("--outfile", required=True, help="Path to save the translated file")
-    parser.add_argument("--cachefile", required=True, help="Auxiliary file to avoid re-running same request")
+    parser.add_argument(
+        "--cachefile", required=True, help="Auxiliary file to avoid re-running same request"
+    )
     parser.add_argument("--max-concurrency", type=int, default=100)
 
     return parser.parse_args()
@@ -63,7 +68,7 @@ def main(infile: Path, outfile: Path, cachefile: Path, max_concurrency: int):
     translated = []
 
     completions = translator.generate(to_translate, cache_file=cachefile, ignore_error=True)
-    iterator = iter(tqdm(completions, desc='Building translated data'))
+    iterator = iter(tqdm(completions, desc="Building translated data"))
 
     for sample in samples:
         copied = copy.deepcopy(sample)

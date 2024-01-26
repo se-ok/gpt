@@ -2,7 +2,6 @@ import hashlib
 import inspect
 import json  # Open the JSON file
 from abc import ABC, abstractmethod
-from collections.abc import Generator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -18,8 +17,10 @@ from tqdm import tqdm
 def _cost_gpt_3_5_turbo(input: int, output: int) -> float:
     return input * 0.001 / 1000 + output * 0.002 / 1000
 
+
 def _cost_gpt_3_5_turbo_instruct(input: int, output: int) -> float:
     return input * 0.0015 / 1000 + output * 0.002 / 1000
+
 
 def _cost_gpt_4(input: int, output: int) -> float:
     return input * 0.03 / 1000 + output * 0.06 / 1000
@@ -33,15 +34,15 @@ class OpenAIOutput(BaseModel):
     completion_tokens: int
 
     def cost(self) -> float:
-        if self.model in {'gpt-3.5-turbo', 'gpt-3.5-turbo-0613', 'gpt-3.5-turbo-1106'}:
+        if self.model in {"gpt-3.5-turbo", "gpt-3.5-turbo-0613", "gpt-3.5-turbo-1106"}:
             return _cost_gpt_3_5_turbo(self.prompt_tokens, self.completion_tokens)
-        
-        if self.model in {'gpt-3.5-turbo-instruct', 'gpt-3.5-turbo-instruct-0914'}:
+
+        if self.model in {"gpt-3.5-turbo-instruct", "gpt-3.5-turbo-instruct-0914"}:
             return _cost_gpt_3_5_turbo_instruct(self.prompt_tokens, self.completion_tokens)
-        
-        if self.model in {'gpt-4', 'gpt-4-1106-preview', 'gpt-4-0613'}:
+
+        if self.model in {"gpt-4", "gpt-4-1106-preview", "gpt-4-0613"}:
             return _cost_gpt_4(self.prompt_tokens, self.completion_tokens)
-        
+
         return 0.0
 
 
@@ -131,7 +132,9 @@ class OpenAICompletionBase(ABC):
             completion_tokens=result.usage.completion_tokens,
         )
 
-    def _complete_with_cache(self, args: dict, cache: dict, cache_file: Path | None = None) -> OpenAIOutput:
+    def _complete_with_cache(
+        self, args: dict, cache: dict, cache_file: Path | None = None
+    ) -> OpenAIOutput:
         """Help concurrency of _complete where some of the runs are cached.
 
         If not cached, when writes to `cache_file` is given.
@@ -153,7 +156,9 @@ class OpenAICompletionBase(ABC):
 
     def _load_cache(self, cache_file: str | Path | None = None) -> tuple[Path | None, dict]:
         if cache_file is None:
-            logger.warning("Using OpenAI API without cache_file might incur unnecessary, duplicated cost.")
+            logger.warning(
+                "Using OpenAI API without cache_file might incur unnecessary, duplicated cost."
+            )
             return None, {}
 
         cache = {}
@@ -161,7 +166,7 @@ class OpenAICompletionBase(ABC):
 
         # If cache_file doesn't exist, touch it to check permission before committing requests.
         if not cache_file.exists():
-            with open(cache_file, 'w') as f:
+            with open(cache_file, "w") as f:
                 pass
 
             return cache_file, {}
@@ -173,44 +178,48 @@ class OpenAICompletionBase(ABC):
                 cache[output.args_hash] = output
 
         return cache_file, cache
-    
-    def _pop_completed_future(self, future_to_idx: dict[Future, int], ignore_error: bool) -> tuple[int, OpenAIOutput | None]:
-        '''From a dict mapping futures to their call index,
+
+    def _pop_completed_future(
+        self, future_to_idx: dict[Future, int], ignore_error: bool
+    ) -> tuple[int, OpenAIOutput | None]:
+        """From a dict mapping futures to their call index,
         wait and pop a completed future and return its index and result.
 
         If an error occured and ignore_error is True, then return the index and None.
         Otherwise raise the error.
 
         `future_to_idx` gets mutated.
-        '''
+        """
         future = next(as_completed(future_to_idx))
         idx = future_to_idx.pop(future)
 
         try:
             result = future.result()
             return idx, result
-        
+
         # If the submitted job was retried with tenacity, then extract the inner error.
         except Exception as e:
             if isinstance(e, tenacity.RetryError):
                 e = e.last_attempt.exception()
 
             if ignore_error:
-                logger.error(f'Ignoring error {type(e)}, {e}')
+                logger.error(f"Ignoring error {type(e)}, {e}")
                 return idx, None
             else:
                 raise e
-                    
+
     def _add_result(self, results: list, idx: int, completion: OpenAIOutput | None):
-        '''Do results[idx] = item, extending results with None if needed.
+        """Do results[idx] = item, extending results with None if needed.
 
         `results` gets mutated.
-        '''
+        """
         if len(results) <= idx:
             results += [None] * (idx + 1 - len(results))
         results[idx] = completion
-        
-    def generate(self, data: Iterable, cache_file: str | Path | None = None, ignore_error: bool = False) -> list[OpenAIOutput]:
+
+    def generate(
+        self, data: Iterable, cache_file: str | Path | None = None, ignore_error: bool = False
+    ) -> list[OpenAIOutput]:
         """Run OpenAI chat completion through all items in data and return the result as list.
         During the consumption of `data`, the results from each item is cached onto `cache_file`,
         so that the next run can re-use cached results, not making duplicated requests.
@@ -221,7 +230,7 @@ class OpenAICompletionBase(ABC):
         cache_file, cache = self._load_cache(cache_file)
 
         iterator = enumerate(data)
-        
+
         try:
             length = len(data)
             results = [None] * length
@@ -230,7 +239,7 @@ class OpenAICompletionBase(ABC):
             length = None
             results = []
 
-        pbar = tqdm(total=length, desc='OpenAI Chat Completion')
+        pbar = tqdm(total=length, desc="OpenAI Chat Completion")
         input_tokens = 0
         output_tokens = 0
         cost = 0
@@ -245,7 +254,9 @@ class OpenAICompletionBase(ABC):
                     input_tokens += completion.prompt_tokens
                     output_tokens += completion.completion_tokens
                     cost += completion.cost()
-                    pbar.set_postfix_str(f'Input {input_tokens}, Output {output_tokens}, Cost ${cost:.4f}')
+                    pbar.set_postfix_str(
+                        f"Input {input_tokens}, Output {output_tokens}, Cost ${cost:.4f}"
+                    )
                     pbar.update()
 
                 args = self.common_args | self.build_query(item)
@@ -259,7 +270,9 @@ class OpenAICompletionBase(ABC):
                 input_tokens += completion.prompt_tokens
                 output_tokens += completion.completion_tokens
                 cost += completion.cost()
-                pbar.set_postfix_str(f'Input {input_tokens}, Output {output_tokens}, Cost ${cost:.4f}')
+                pbar.set_postfix_str(
+                    f"Input {input_tokens}, Output {output_tokens}, Cost ${cost:.4f}"
+                )
                 pbar.update()
 
             pbar.close()

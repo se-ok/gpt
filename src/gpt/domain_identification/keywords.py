@@ -23,7 +23,7 @@ CALL_ARGS = {
 
 @dataclass
 class Keywords(Field):
-    keywords: tuple[str]
+    keywords: list[str]
 
 
 class KeywordCollector(OpenAICompletionBase):
@@ -56,6 +56,9 @@ def get_keywords(fields: Sequence[Field], num_keywords: int) -> list[Keywords]:
                 continue
 
             keywords.append(keyword)
+        
+        if len(keywords) != num_keywords:
+            logger.error(f'Field {field} got {len(keywords)} keywords, not {num_keywords} as requested.')
 
         result.append(Keywords(primary=field.primary, secondary=field.secondary, keywords=keywords))
 

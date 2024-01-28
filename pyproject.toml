@@ -5,7 +5,7 @@ version = "0.0.1"
 authors = [{ name = "Seongmin Ok", email = "seongmin.ok@samsung.com" }]
 dependencies = [
     "loguru",
-    "requests"
+    "requests",
     "openai",
     "tenacity",
 ]

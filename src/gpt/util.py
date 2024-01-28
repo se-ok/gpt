@@ -59,3 +59,9 @@ def parse_enumeration(line: str) -> str:
         raise ValueError(f"Unable to parse with pattern '1. XXX': {line.strip()}")
 
     return match.group(1).strip()
+
+
+def is_english_only(text: str) -> bool:
+    # This regular expression matches only English letters (both upper and lower case),
+    # spaces, punctuation, and numerals. You can modify it to include other characters if needed.
+    return re.fullmatch(r"[A-Za-z0-9\s.,;\'\"!?()-]+", text) is not None
